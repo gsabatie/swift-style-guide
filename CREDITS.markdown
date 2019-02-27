@@ -31,5 +31,6 @@ It is a collaborative effort from the most stylish raywenderlich.com team member
 * [Ray Wenderlich](https://github.com/rwenderlich)
 * [Jack Wu](https://github.com/jackwu95)
 * [Richard Critz](https://github.com/rcritz)
+* [Guillaume Sabatie]()
 
 Hat tip to [Nicholas Waynik](https://github.com/ndubbs) and the [Objective-C Style Guide](https://github.com/raywenderlich/objective-c-style-guide) team!
