@@ -1,9 +1,7 @@
-# The Official raywenderlich.com Swift Style Guide.
+# The Official Gsabatie Swift Style Guide.
 ### Updated for Swift 4.2
 
-This style guide is different from others you may see, because the focus is centered on readability for print and the web. We created this style guide to keep the code in our books, tutorials, and starter kits nice and consistent — even though we have many different authors working on the books.
-
-Our overarching goals are clarity, consistency and brevity, in that order.
+This style guide is different from others you may see, because the focus is centered on readability and performance.
 
 ## Table of Contents
 
@@ -218,6 +216,15 @@ Since the compiler does not allow you to re-declare protocol conformance in a de
 
 For UIKit view controllers, consider grouping lifecycle, custom accessors, and IBAction in separate class extensions.
 
+#### Marking protocols that are only satisfied by classes as class-protocols
+Swift can limit protocols adoption to classes only. One advantage of marking protocols as class-only is that the compiler can optimize the program based on the knowledge that only classes satisfy a protocol. For example, the ARC memory management system can easily retain (increase the reference count of an object) if it knows that it is dealing with a class. Without this knowledge the compiler has to assume that a struct may satisfy the protocol and it needs to be prepared to retain or release non-trivial structures, which can be expensive.
+
+If it makes sense to limit the adoption of protocols to classes then mark protocols as class-only protocols to get better runtime performance.
+
+```swift
+protocol Pingable : AnyObject { func ping() -> Int }
+```
+
 ### Unused Code
 
 Unused (dead) code, including Xcode template code and placeholder comments should be removed. An exception is when your tutorial or book instructs the user to use the commented code.
@@ -406,10 +413,9 @@ The example above demonstrates the following style guidelines:
 
 ### Use of Self
 
-For conciseness, avoid using `self` since Swift does not require it to access an object's properties or invoke its methods.
+For conciseness, Swift does not require `self` to access an object's properties or invoke its methods.
 
-Use self only when required by the compiler (in `@escaping` closures, or in initializers to disambiguate properties from arguments). In other words, if it compiles without `self` then omit it.
-
+Always use `self` to easely distinguish variable and instance properties. Also it will reduce compile time.
 
 ### Computed Properties
 
@@ -433,15 +439,28 @@ var diameter: Double {
 
 ### Final
 
-Marking classes or members as `final` in tutorials can distract from the main topic and is not required. Nevertheless, use of `final` can sometimes clarify your intent and is worth the cost. In the below example, `Box` has a particular purpose and customization in a derived class is not intended. Marking it `final` makes that clear.
+Marking classes or members as `final` tell to the compiler that the declaarartion cannot be overridden. This implies that the compiler can enit direct function calls instead.
 
 ```swift
-// Turn any generic type into a reference type using this Box class.
-final class Box<T> {
-  let value: T
-  init(_ value: T) {
-    self.value = value
-  }
+final class Plane {
+  // No declarations in class 'C' can be overridden.
+  var array1: [Int]
+  func takeOff() { ... }
+}
+
+class Car {
+  final var array1: [Int] // 'array1' cannot be overridden by a computed property.
+  var array2: [Int]      // 'array2' *can* be overridden by a computed property.
+}
+
+func reviewAPlane(_ plane: Plane) {
+   plane.array1[i] = ... // Can directly access Plane.array without going through dynamic dispatch.
+   plane.takeOff() = ... // Can directly call Plane.takeOff without going through virtual dispatch.
+}
+
+func reviewCar(_ car: Car) {
+   car.array1[i] = ... // Can directly access Car.array1 without going through dynamic dispatch.
+   car.array2[i] = ... // Will access Car.array2 through dynamic dispatch.
 }
 ```
 
@@ -694,9 +713,9 @@ private func makeLocationManager() -> CLLocationManager {
 
 ### Type Inference
 
-Prefer compact code and let the compiler infer the type for constants or variables of single instances. Type inference is also appropriate for small, non-empty arrays and dictionaries. When required, specify the specific type such as `CGFloat` or `Int16`.
+Do not let the compiler infer the type for constants or variables of single instances. Type inference will increase compile time. Also it will simplify the reading of the code source by given the type of each variable.
 
-**Preferred**:
+**Not Preferred**:
 ```swift
 let message = "Click the button"
 let currentBounds = computeViewBounds()
@@ -704,7 +723,7 @@ var names = ["Mic", "Sam", "Christine"]
 let maximumWidth: CGFloat = 106.5
 ```
 
-**Not Preferred**:
+**Preferred**:
 ```swift
 let message: String = "Click the button"
 let currentBounds: CGRect = computeViewBounds()
@@ -809,35 +828,53 @@ resource.request().onComplete { [weak self] response in
 }
 ```
 
+### Container Types Efficiently
+
+#### Using value types in Array
+
+In Swift, types can be divided into two different categories: value types (`structs`, `enums`, `tuples`) and reference types (classes). A key distinction is that value types cannot be included inside an `NSArray`. Thus when using value types, the optimizer can remove most of the overhead in Array that is necessary to handle the possibility of the array being backed an `NSArray`.
+
+Additionally, in contrast to reference types, value types only need reference counting if they contain, recursively, a reference type. By using value types without reference types, one can avoid additional retain, release traffic inside `Array`.
+
+```swift
+// Don't use a class here.
+struct PhonebookEntry {
+  var name : String
+  var number : [Int]
+}
+
+var a : [PhonebookEntry]
+```
+Keep in mind that there is a trade-off between using large value types and using reference types. In certain cases, the overhead of copying and moving around large value types will outweigh the cost of removing the bridging and retain/release overhead.
+
+#### Using ContiguousArray with reference types when NSArray bridging is unnecessary
+
+If you need an array of reference types and the array does not need to be bridged to NSArray, use ContiguousArray instead of Array:
+
+```swift
+class C { ... }
+var a: ContiguousArray<C> = [C(...), C(...), ..., C(...)]
+```
+
 ## Access Control
 
-Full access control annotation in tutorials can distract from the main topic and is not required. Using `private` and `fileprivate` appropriately, however, adds clarity and promotes encapsulation. Prefer `private` to `fileprivate`; use `fileprivate` only when the compiler insists.
-
-Only explicitly use `open`, `public`, and `internal` when you require a full access control specification.
+Applying the `private` or `fileprivate` keywords to a declaration restricts the visibility of the declaration to the file in which it is declared. This allows the compiler to be able to ascertain all other potentially overriding declarations. Thus the absence of any such declarations enables the compiler to infer the final keyword automatically and remove indirect calls for methods and field accesses accordingly.
 
 Use access control as the leading property specifier. The only things that should come before access control are the `static` specifier or attributes such as `@IBAction`, `@IBOutlet` and `@discardableResult`.
 
+ For instance in the following, `fluxCapacitor` , will be able to be accessed directly assuming message, `TimeMachine` do not have any overriding declarations in the same file:
+
 **Preferred**:
 ```swift
-private let message = "Great Scott!"
-
 class TimeMachine {  
-  private dynamic lazy var fluxCapacitor = FluxCapacitor()
+  private lazy var fluxCapacitor = FluxCapacitor()
 }
 ```
 
-**Not Preferred**:
-```swift
-fileprivate let message = "Great Scott!"
-
-class TimeMachine {  
-  lazy dynamic private var fluxCapacitor = FluxCapacitor()
-}
-```
 
 ## Control Flow
 
-Prefer the `for-in` style of `for` loop over the `while-condition-increment` style.
+Prefer the `for-in` style of `for` loop over the `while-condition-increment` style. But try to use `forEach`, `map` and `reduce` when possible. Te methods associated with the genric types `Array` and `Dictionarry` are quicker that the control loops
 
 **Preferred**:
 ```swift
@@ -845,8 +882,8 @@ for _ in 0..<3 {
   print("Hello three times")
 }
 
-for (index, person) in attendeeList.enumerated() {
-  print("\(person) is at position #\(index)")
+attendeeList.forEach(attendee: Attendee) {
+  print("\(attendee.name)")
 }
 
 for index in stride(from: 0, to: items.count, by: 2) {
